@@ -116,11 +116,15 @@ FuncImpl::FuncImpl(Func* f, FuncType* t)
 
 FuncImpl::FuncImpl(ID* id)
 	{
-	if ( !id && id->HasVal() ) 
+	if ( id && id->HasVal() ) 
 		{
 		func = id->ID_Val()->AsFunc();
-		type = id->Type()->AsFuncType();
 		::Ref(func);
+		}
+
+	if ( id && id->Type() )
+		{
+		type = id->Type()->AsFuncType();
 		::Ref(type);
 		}
 	}
@@ -156,16 +160,19 @@ FuncImpl::FuncImpl(const char* arg_name)
 	Unref(id);
 	}
 
-void FuncImpl::SetFuncAndType (Func* f, FuncType* t)
+void FuncImpl::SetFunc (Func* f)
 	{
 	if ( HasFunc() )
-		{
 		Unref(func);
-		Unref(type);
-		}
 	func = f;
-	type = t;
 	::Ref(func);
+	}
+
+void FuncImpl::SetType (FuncType* t)
+	{
+	if ( type )
+		Unref(type);
+	type = t;
 	::Ref(type);
 	}
 
@@ -214,37 +221,50 @@ FuncImpl* Func::GetOverload(int idx) const
 	return overloads[idx];
 	}
 
-int Func::AddOverload(FuncImpl* impl)
-	{
-	if ( impl )
-		::Ref(impl);
-
-	overloads.push_back(impl);
-	int index = overloads.size() - 1;
-	impl->SetOverloadIndex(index);
-	impl->SetFuncAndType(this, type);
-	return index;
-	}
-
 void Func::SetOverload(int idx, FuncImpl* impl)
 	{
 	if ( impl )
 		::Ref(impl);
+	else
+		return;
 
-	auto size = static_cast<int>(overloads.size());
+	impl->SetOverloadIndex(idx);
+	impl->SetFunc(this);
+
+	//type->GetOverload(idx)->type->SetInit(true);
+
+	int size = static_cast<int>(overloads.size());
 
 	if ( idx >= size )
 		for ( auto i = size; i <= idx; ++i )
 			overloads.push_back(nullptr);
+	else if ( idx < 0 )
+		reporter->InternalError("Index under 0 in Func::SetOverload");
+	else if ( overloads[idx] && overloads[idx]->GetOverloadIndex() != idx )
+		{
+		SetOverload(overloads[idx]->GetOverloadIndex(),overloads[idx]);
+		Unref(overloads[idx]);
+		}
 
-	Unref(overloads[idx]);
-	impl->SetOverloadIndex(idx);
-	impl->SetFuncAndType(this, type);
 	overloads[idx] = impl;
+	}
+
+int Func::AddOverload(FuncImpl* impl)
+	{
+	bool debug = false; //streq(Name(),"foo");
+	if (debug)
+		printf("ADDING OVERLOAD DEBUG\n");
+	int index = overloads.size();
+	SetOverload(index, impl);
+
+	return index;
 	}
 
 Val* Func::Call(val_list* args, Frame* parent, int overload_idx) const
 	{
+	bool debug = false;
+	if (debug)
+		printf("Function Called: %s (%i)\n", Name(),overload_idx);
 	// TODO: may need to look at all internal Call usages to judge if they're
 	// fine to leave be without any explicit overload idx (guessing they should
 	// be since implicitly they were functions defined at a time when

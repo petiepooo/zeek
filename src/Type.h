@@ -400,6 +400,7 @@ class FuncImpl;
 
 struct FuncOverload {
 	int index;
+	bool init = false;
 	FuncType* type;
 	FuncDecl* decl;
 };
@@ -412,6 +413,7 @@ public:
 	~FuncType() override;
 
 	int AddOverload(RecordType* args);
+	int SetOverload(int overload_idx, RecordType* args);
 
 	int GetOverloadIndex(RecordType* matching_args) const;
 	FuncOverload* GetOverload(RecordType* matching_args) const;
@@ -424,6 +426,8 @@ public:
 	const BroType* YieldType() const override;
 	void SetYieldType(BroType* arg_yield)	{ yield = arg_yield; }
 	function_flavor Flavor() const { return flavor; }
+	bool Init() { return init; }
+	void SetInit(bool i) { init = i; }
 	std::string FlavorString() const;
 
 	// Used to convert a function type to an event or hook type.
@@ -451,11 +455,13 @@ protected:
 
 	FuncType(RecordType* args, BroType* yield, function_flavor f, bool solitary);
 	int AddOverload(RecordType* args, bool solitary);
+	int SetOverload(int overload_idx, RecordType* args, bool solitary);
 
 	FuncType() : BroType(TYPE_FUNC) { yield = 0; flavor = FUNC_FLAVOR_FUNCTION; }
 
 	BroType* yield;
 	function_flavor flavor;
+	bool init;
 	std::vector<FuncOverload*> overloads;
 };
 

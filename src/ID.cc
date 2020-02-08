@@ -61,62 +61,15 @@ void ID::ClearVal()
 
 void ID::SetVal(Val* v, bool arg_weak_ref)
 	{
-	/*if ( type && type->Tag() == TYPE_FUNC &&
-	     type->AsFuncType()->Flavor() == FUNC_FLAVOR_FUNCTION )
-		{
-		// To correctly handle overloads, don't assign the new
-		// value directly instead swap out the particular overload impl.
-		auto fv = v->AsFuncVal();
-		auto t = type->AsFuncType();
+	ClearVal();
+	bool debug = false; //streq(name,"foo");
 
-		FuncOverload* vo = nullptr;
+	if ( debug )
+		printf("ID SET VAL DEBUG \n");
+	val = v;
 
-		if ( fv->GetOverloadIndex() >= 0 )
-			vo = fv->GetType()->GetOverload(fv->GetOverloadIndex());
-		else
-			{
-			auto vt = v->Type()->AsFuncType();
-
-			for ( const auto& vto : vt->Overloads() )
-				if ( t->GetOverload(vto->decl->args) )
-					{
-					vo = vto;
-					break;
-					}
-
-			if ( ! vo )
-				reporter->RuntimeError(GetLocationInfo(),
-				                       "invalid assignment to function ID");
-			}
-
-		auto o = t->GetOverload(vo->decl->args);
-
-		if ( ! o )
-			reporter->RuntimeError(GetLocationInfo(),
-			                       "invalid assignment to function ID");
-
-		if ( val )
-			val->AsFunc()->SetOverload(o->index, fv);
-		else
-			{
-			auto nf = new Func(this);
-			nf->SetOverload(o->index, fv);
-			val = new Val(nf, o->index);
-
-			if ( ! arg_weak_ref )
-				Unref(v);
-
-			arg_weak_ref = false;
-			}
-
-		}
-	else
-		{*/
-		ClearVal();
-
-		val = v;
-		weak_ref = arg_weak_ref;
-		//}
+	
+	weak_ref = arg_weak_ref;
 
 	Modified();
 

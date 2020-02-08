@@ -243,6 +243,7 @@ Val* NameExpr::Eval(Frame* f) const
 		return v->Ref();
 	else
 		{
+		printf("VAL USED BUT NOT SET ERROR\n");
 		RuntimeError("value used but not set");
 		return 0;
 		}
@@ -2138,12 +2139,12 @@ FuncRefExpr::FuncRefExpr(Expr* arg_op, FuncType* target, int arg_overload_idx)
 
 Val* FuncRefExpr::Eval(Frame* f) const
 	{
-	auto fv = op->Eval(f);
+	Val* fv = op->Eval(f);
 
 	if ( ! fv )
 		return nullptr;
 
-	auto func = fv->AsFunc();
+	Func* func = fv->AsFunc();
 
 	if ( func->GetOverload(overload_idx) )
 		{
@@ -2154,6 +2155,7 @@ Val* FuncRefExpr::Eval(Frame* f) const
 		}
 
 	Unref(fv);
+	printf("UNRESOLVED OVERLOAD REFERENCE\n");
 	RuntimeError("unresolved function overload reference");
 	return nullptr;
 	}
@@ -4425,7 +4427,7 @@ Val* CallExpr::Eval(Frame* f) const
 			f->SetCall(this);
 
 		// TODO: statically cache overload index when directly using name
-		ret = fv->Call(v,f);
+		ret = fv->GetFunc()->Call(v,f);
 		//fv->GetFunc()->Call(v, f, fv->GetOverloadIndex());
 
 		if ( f )

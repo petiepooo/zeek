@@ -60,7 +60,8 @@ public:
 	int GetOverloadIndex()
 		{ return overload_idx; }
 
-	void SetFuncAndType(Func* f, FuncType* t);
+	void SetFunc(Func* f);
+	void SetType(FuncType* t);
 
 	Func* GetFunc() const
 		{ return func; }
@@ -117,8 +118,8 @@ public:
 	// TODO: get rid of this ? mark deprecated
 	FuncType* FType() const
 		{
-		assert(overloads.size() == 1);
-		return overloads[0]->GetType();
+		//assert(overloads.size() == 1);
+		return type;
 		}
 
 	virtual Func* DoClone();

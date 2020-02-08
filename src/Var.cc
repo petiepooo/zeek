@@ -4,6 +4,7 @@
 
 #include "zeek-config.h"
 
+#include <assert.h>
 #include "Var.h"
 #include "Func.h"
 #include "Stmt.h"
@@ -23,9 +24,85 @@ static Val* init_val(Expr* init, const BroType* t, Val* aggr)
 		}
 	}
 
+static void init_func_id (ID* id, FuncImpl* fv, int overload_idx, FuncType* t, bool redef = false)
+	{
+	bool debug = false; //streq(id->Name(),"Log::default_ext_func");
+	if ( fv->GetFunc() && (fv->GetFunc()->Flavor() == FUNC_FLAVOR_HOOK || fv->GetFunc()->Flavor() == FUNC_FLAVOR_EVENT) )
+		return;
+
+	if ( redef && id->HasVal() )
+		{
+		//printf("DEBUG REDEF\n");
+		FuncType* ft = fv->GetType();
+		FuncType* idt = id->Type()->AsFuncType();
+		for ( FuncOverload* o: t->Overloads() )
+			{
+			FuncOverload* fo = ft->GetOverload(o->decl->args);
+			if ( fo )
+				{
+				idt->SetOverload(overload_idx,o->decl->args);
+				fv = fv->GetFunc()->GetOverload(fo->index);
+				id->ID_Val()->AsFunc()->SetOverload(overload_idx, fv);
+				return;
+				}
+			}
+		id->Error("No function found to redef");
+		}
+	if ( id->HasVal() )
+		{
+		if (debug)
+			printf("ADDING OVERLOAD FOR %s overload %i\n",id->Name(),overload_idx);
+		id->Type()->AsFuncType()->GetOverload(overload_idx)->type->SetInit(true);
+		id->ID_Val()->AsFunc()->SetOverload(overload_idx,fv);
+		return;
+		}
+
+	if ( debug )
+		printf("MAKING BROFUNC FOR %s overload %i\n",id->Name(),overload_idx);
+
+	if ( fv->GetType() && !id->Type() )
+		id->SetType(fv->GetType());
+
+	else if ( fv->GetType() && t )
+		{
+		FuncType* ft = fv->GetType();
+		FuncType* idt = id->Type()->AsFuncType();
+		for ( FuncOverload* o: t->Overloads() )
+			{
+			FuncOverload* fo = ft->GetOverload(o->decl->args);
+			if ( fo )
+				{
+				idt->SetYieldType(fo->type->YieldType());
+				idt->SetOverload(overload_idx,o->decl->args);
+				fv = fv->GetFunc()->GetOverload(fo->index);
+				break;
+				}
+			}
+
+		t->GetOverload(0)->index = fv->GetOverloadIndex();
+		}
+
+	else if ( !fv->GetType() && id->Type() && id->Type()->Tag() == TYPE_FUNC )
+		fv->SetType(id->Type()->AsFuncType());
+
+	if (debug)
+		printf("Set OVERLOAD FOR FUNC\n");
+
+	Func* f = new Func(id);
+	f->SetOverload(overload_idx, fv);
+
+	id->SetVal(new Val(fv));
+
+	if (debug)
+		printf("Set VAL FOR FUNC\n");
+	}
+
 static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 			attr_list* attr, decl_type dt, int do_init)
 	{
+	bool debug = false; //streq(id->Name(),"Log::default_ext_func");
+	if (debug)
+		printf("debug in make_var\n");
 	if ( id->Type() )
 		{
 		if ( id->IsRedefinable() || (! init && attr) )
@@ -111,10 +188,12 @@ static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 	else
 		Ref(t);
 
+	int overload_idx = -1;
+
 	if ( id->Type() && id->Type()->Tag() == TYPE_FUNC )
 		{
-		auto existing_type = id->Type()->AsFuncType();
-		auto new_type = t->AsFuncType();
+		FuncType* existing_type = id->Type()->AsFuncType();
+		FuncType* new_type = t->AsFuncType();
 
 		if ( ! same_type(existing_type->YieldType(), new_type->YieldType()) )
 			{
@@ -122,18 +201,29 @@ static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 			return;
 			}
 
-		auto o = existing_type->GetOverload(new_type->Args());
+		FuncOverload* o = existing_type->GetOverload(new_type->Args());
 
-		if ( o )
+		if ( o && dt != VAR_REDEF )
 			{
 			id->Type()->Error("function type re-declaration", new_type);
 			return;
 			}
-
-		existing_type->AddOverload(new_type->Args());
+		else if ( dt != VAR_REDEF )
+			{
+			if (debug)
+				printf("ADDING OVERLOAD IN TYPE\n");
+			overload_idx = existing_type->AddOverload(new_type->Args());
+			if (debug)
+				printf("ADDED OVERLOAD IN TYPE\n");
+			}
+		else
+			overload_idx = o->index;
 		}
 	else
+		{
 		id->SetType(t);
+		overload_idx = 0;
+		}
 
 	if ( attr )
 		id->AddAttrs(new Attributes(attr, t, false, id->IsGlobal()));
@@ -168,6 +258,9 @@ static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 		}
 		}
 
+	if (debug)
+		printf("#2");
+
 	if ( do_init )
 		{
 		if ( c == INIT_NONE && dt == VAR_REDEF && t->IsTable() &&
@@ -180,6 +273,8 @@ static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 		              (c == INIT_REMOVE && id->FindAttr(ATTR_DEL_FUNC)) ))
 			// Just apply the function.
 			id->SetVal(init, c);
+
+		
 
 		else if ( dt != VAR_REDEF || init || ! attr )
 			{
@@ -198,6 +293,15 @@ static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 
 			else if ( t->Tag() == TYPE_VECTOR )
 				aggr = new VectorVal(t->AsVectorType());
+
+			else if ( t->Tag() == TYPE_FUNC && t->AsFuncType()->Flavor() == FUNC_FLAVOR_FUNCTION && init )
+				{
+				assert(overload_idx >= 0);
+				if ( debug )
+					printf("BEFORE INIT FUNC ID\n");
+				init_func_id(id, init_val(init, t, 0)->AsFuncVal(), overload_idx, t->AsFuncType(), dt == VAR_REDEF);
+				return;
+				}
 
 			else
 				aggr = 0;
@@ -232,6 +336,9 @@ static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 
 		id->SetOption();
 		}
+
+	if (debug)
+		printf("#3");
 
 	id->UpdateValAttrs();
 
@@ -374,7 +481,7 @@ void begin_func(ID* id, const char* module_name, function_flavor flavor,
 		t->ClearYieldType(flavor);
 		}
 
-	auto overload_idx = -1;
+	int overload_idx = -1;
 
 	if ( id->Type() )
 		{
@@ -411,8 +518,9 @@ void begin_func(ID* id, const char* module_name, function_flavor flavor,
 
 	if ( id->HasVal() )
 		{
-		auto existing_func_val = id->ID_Val()->AsFunc();
-		function_flavor id_flavor = existing_func_val->Flavor();
+		Func* existing_func = id->ID_Val()->AsFunc();
+		FuncType* existing_func_type = id->Type()->AsFuncType();
+		function_flavor id_flavor = existing_func->Flavor();
 
 		if ( id_flavor != flavor )
 			id->Error("inconsistent function flavor", t);
@@ -429,12 +537,18 @@ void begin_func(ID* id, const char* module_name, function_flavor flavor,
 		case FUNC_FLAVOR_FUNCTION:
 			if ( ! id->IsRedefinable() )
 				{
-				auto& os = existing_func_val->Overloads();
+				FuncOverload* o = existing_func_type->GetOverload(overload_idx);
+				bool debug = false; //id->ID_Val()->AsFunc()->Flavor() == FUNC_FLAVOR_FUNCTION;
+				if ( debug )
+					printf("BEGINFUNC %s\n",id->Name());
 
+				auto& os = existing_func->Overloads();
 				if ( overload_idx >= 0 &&
 				     overload_idx < static_cast<int>(os.size()) &&
-				     os[overload_idx] )
+				     o && o->type->Init() ) {
+					printf("FUNC (%i) already defined\n",overload_idx);
 					id->Error("already defined");
+			}
 				}
 			break;
 
@@ -538,35 +652,33 @@ void end_func(Stmt* body)
 		}
 
 	int overload_idx = ingredients->scope->OverloadIndex();
+	BroFunc* bf = nullptr;
 
-	if ( ingredients->id->HasVal() )
+	if ( ingredients->id->HasVal() && 
+			(ingredients->id->ID_Val()->AsFunc()->Flavor() == FUNC_FLAVOR_HOOK || 
+			ingredients->id->ID_Val()->AsFunc()->Flavor() == FUNC_FLAVOR_EVENT) )
 		{
-		auto f = ingredients->id->ID_Val()->AsFunc();
-		auto o = f->GetOverload(std::max(overload_idx,0));
-		dynamic_cast<BroFunc*>(o)->AddBody(
+		BroFunc* id_bf = dynamic_cast<BroFunc*>(ingredients->id->ID_Val()->AsFunc()->GetOverload(overload_idx));
+		id_bf->AddBody(
 			ingredients->body,
 			ingredients->inits,
 			ingredients->frame_size,
 			ingredients->priority,
 			ingredients->scope);
 		}
-		
 	else
 		{
-		Func* f = new Func(ingredients->id);
-		BroFunc* bf = new BroFunc(
-			ingredients->id,
-			ingredients->body,
-			ingredients->inits,
-			ingredients->frame_size,
-			ingredients->priority,
-			ingredients->scope);
-
-		f->AddOverload(bf);
-
-		ingredients->id->SetVal(new Val(bf));
-		ingredients->id->SetConst();
+		bf = new BroFunc(
+		ingredients->id,
+		ingredients->body,
+		ingredients->inits,
+		ingredients->frame_size,
+		ingredients->priority,
+		ingredients->scope);
 		}
+		
+	if (bf) 
+		init_func_id(ingredients->id, bf, overload_idx, 0);
 
 	dynamic_cast<BroFunc*>(ingredients->id->ID_Val()->AsFuncVal())->SetScope(ingredients->scope);
 	// Note: ideally, something would take ownership of this memory until the
