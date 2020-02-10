@@ -67,8 +67,6 @@ void ID::SetVal(Val* v, bool arg_weak_ref)
 	if ( debug )
 		printf("ID SET VAL DEBUG \n");
 	val = v;
-
-	
 	weak_ref = arg_weak_ref;
 
 	Modified();

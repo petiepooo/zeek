@@ -243,7 +243,6 @@ Val* NameExpr::Eval(Frame* f) const
 		return v->Ref();
 	else
 		{
-		printf("VAL USED BUT NOT SET ERROR\n");
 		RuntimeError("value used but not set");
 		return 0;
 		}
@@ -265,8 +264,24 @@ Expr* NameExpr::MakeLvalue()
 
 void NameExpr::Assign(Frame* f, Val* v)
 	{
+	bool debug = false;
 	if ( id->IsGlobal() )
+		{
+		if ( id->Type()->Tag() == TYPE_FUNC )
+			{
+			FuncImpl* fv = v->AsFuncVal();
+			FuncType* ft = fv->GetType();
+			FuncType* idt = id->Type()->AsFuncType();
+			FuncOverload* o = ft->GetOverload(fv->GetOverloadIndex());
+			FuncOverload* to_add = idt->GetOverload(o->decl->args);
+			int overload_idx = to_add->index;
+			if (debug)
+			printf("Adding overload in NameExpr Assign\n");
+			id->ID_Val()->AsFunc()->SetOverload(overload_idx, fv);
+			return;
+			}
 		id->SetVal(v);
+		}
 	else
 		f->SetElement(id, v);
 	}
@@ -2087,12 +2102,12 @@ static bool resolve_func_overload_expr(Expr*& e, BroType* t)
 	if ( ! same_type(tft->YieldType(), eft->YieldType()) )
 		return false;
 
-	auto overload_idx = eft->GetOverloadIndex(tft->Args());
+	int overload_idx = tft->GetOverloadIndex(eft->Args());
 
 	if ( overload_idx < 0 )
 		return false;
 
-	auto o = eft->GetOverload(overload_idx);
+	FuncOverload* o = tft->GetOverload(overload_idx);
 
 	if ( e->Tag() != EXPR_NAME )
 		{
@@ -2149,13 +2164,12 @@ Val* FuncRefExpr::Eval(Frame* f) const
 	if ( func->GetOverload(overload_idx) )
 		{
 		// TODO: pre-allocate all possible Vals for each overload ?
-		auto rval = new Val(func, overload_idx);
+		Val* rval = new Val(func, overload_idx);
 		Unref(fv);
 		return rval;
 		}
 
 	Unref(fv);
-	printf("UNRESOLVED OVERLOAD REFERENCE\n");
 	RuntimeError("unresolved function overload reference");
 	return nullptr;
 	}

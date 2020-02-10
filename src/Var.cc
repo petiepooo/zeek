@@ -26,13 +26,15 @@ static Val* init_val(Expr* init, const BroType* t, Val* aggr)
 
 static void init_func_id (ID* id, FuncImpl* fv, int overload_idx, FuncType* t, bool redef = false)
 	{
-	bool debug = false; //streq(id->Name(),"Log::default_ext_func");
+	bool debug = false; //streq(id->Name(),"qux");
+
 	if ( fv->GetFunc() && (fv->GetFunc()->Flavor() == FUNC_FLAVOR_HOOK || fv->GetFunc()->Flavor() == FUNC_FLAVOR_EVENT) )
 		return;
 
 	if ( redef && id->HasVal() )
 		{
-		//printf("DEBUG REDEF\n");
+		if (debug)
+		printf("DEBUG REDEF\n");
 		FuncType* ft = fv->GetType();
 		FuncType* idt = id->Type()->AsFuncType();
 		for ( FuncOverload* o: t->Overloads() )
@@ -48,7 +50,8 @@ static void init_func_id (ID* id, FuncImpl* fv, int overload_idx, FuncType* t, b
 			}
 		id->Error("No function found to redef");
 		}
-	if ( id->HasVal() )
+
+	else if ( id->HasVal() )
 		{
 		if (debug)
 			printf("ADDING OVERLOAD FOR %s overload %i\n",id->Name(),overload_idx);
@@ -100,7 +103,7 @@ static void init_func_id (ID* id, FuncImpl* fv, int overload_idx, FuncType* t, b
 static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 			attr_list* attr, decl_type dt, int do_init)
 	{
-	bool debug = false; //streq(id->Name(),"Log::default_ext_func");
+	bool debug = false; //streq(id->Name(),"qux");
 	if (debug)
 		printf("debug in make_var\n");
 	if ( id->Type() )
@@ -640,6 +643,7 @@ TraversalCode OuterIDBindingFinder::PostExpr(const Expr* expr)
 void end_func(Stmt* body)
 	{
 	auto ingredients = std::make_unique<function_ingredients>(pop_scope(), body);
+	bool debug = false; //streq(ingredients->id->Name(), "qux");
 
 	if ( streq(ingredients->id->Name(), "anonymous-function") )
 		{
@@ -676,7 +680,11 @@ void end_func(Stmt* body)
 		ingredients->priority,
 		ingredients->scope);
 		}
-		
+
+	ID* debugid = ingredients->id;
+	if (debug)
+		printf("debug in end_func %s\n",debugid->Name());
+
 	if (bf) 
 		init_func_id(ingredients->id, bf, overload_idx, 0);
 
