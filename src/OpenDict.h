@@ -6,7 +6,6 @@
 #include "Hash.h"
 #include <climits>
 class Dictionary;
-class DictEntry;
 class IterCookie;
 
 // Default number of hash buckets in dictionary.  The dictionary will
@@ -41,7 +40,8 @@ extern void generic_delete_func(void*);
 // bucket at which to start looking for the next value to return.
 #define TOO_FAR_TO_REACH 0xFFFF
 #define MAX_KEY_SIZE 0XFFFF
-struct DictEntry{//24 bytes. perfectly alligned. always own the key. but not the value.
+class DictEntry{//24 bytes. perfectly alligned. always own the key. but not the value.
+public:
 	#ifdef DEBUG
 	int bucket;//for easy debugging
 	#endif//DEBUG
@@ -49,20 +49,20 @@ struct DictEntry{//24 bytes. perfectly alligned. always own the key. but not the
 	uint16_t key_size; //the length of the key. <=8 will be embedded directly. otherwise a pointer 8K max enough?
 	uint32_t hash; //lower 4-byte of the 8-byte long hash. the part to calculate position in the table.
 
-	void* value; //for Bro, value is always a pointer. 
+	void* value; //for Bro, value is always a pointer.
 	union{
 		char key_here[8]; //hold key len<=8. when over 8, it's a pointer to real keys.
 		char* key;
 	};
 
-	DictEntry(void* arg_key, int key_size=0, hash_t hash=0, void* value=0, int16_t d=TOO_FAR_TO_REACH, int copy_key=0) 
+	DictEntry(void* arg_key, int key_size=0, hash_t hash=0, void* value=0, int16_t d=TOO_FAR_TO_REACH, int copy_key=0)
 	: distance(d), key_size(key_size), hash((uint32_t)hash), value(value)
 		{
 		#ifdef DEBUG
 		bucket = 0;
 		#endif//DEBUG
 		if( key_size <= 8)
-			{				
+			{
 			memcpy(key_here, arg_key, key_size);
 			if(!copy_key)
 				delete (char*)arg_key; //own the arg_key, now don't need it.
@@ -94,7 +94,7 @@ struct DictEntry{//24 bytes. perfectly alligned. always own the key. but not the
 		}
 
 	//if with no intent to release key memory, call SetEmpty instead. key pointer is shared when moving around.
-	void Clear() 
+	void Clear()
 		{//SetEmpty & release memory if allocated.
 		if( key_size > 8 )
 			delete key;
@@ -103,7 +103,7 @@ struct DictEntry{//24 bytes. perfectly alligned. always own the key. but not the
 	const char* GetKey() const { return key_size <= 8? key_here : key; }
 	bool Equal(const char* arg_key, int arg_key_size, hash_t arg_hash) const
 		{//only 40-bit hash comparison.
-		return ( 0 == ((hash ^ arg_hash) & HASH_MASK) ) 
+		return ( 0 == ((hash ^ arg_hash) & HASH_MASK) )
 			&& key_size == arg_key_size && 0 == memcmp(GetKey(), arg_key, key_size);
 		}
 	bool operator==(const DictEntry& r) const
@@ -115,8 +115,6 @@ struct DictEntry{//24 bytes. perfectly alligned. always own the key. but not the
 		return ! Equal(r.GetKey(), r.key_size, r.hash);
 		}
 };
-
-struct IterCookie;
 
 // Default number of hash buckets in dictionary.  The dictionary will
 // increase the size of the hash table as needed.
@@ -141,7 +139,7 @@ public:
 		{ return Insert(key->TakeKey(), key->Size(), key->Hash(), val, 0); }
 	// If copy_key is true, then the key is copied, otherwise it's assumed
 	// that it's a heap pointer that now belongs to the Dictionary to
-	// manage as needed. 
+	// manage as needed.
 	void* Insert(void* key, int key_size, hash_t hash, void* val, int copy_key);
 
 	// Removes the given element.  Returns a pointer to the element in
@@ -210,7 +208,7 @@ public:
 	void Clear();
 
 	unsigned int MemoryAllocation() const;
-	float GetThreshold() const { return 1.0 - 1.0 / (1<<DICT_LOAD_FACTOR_BITS);} 
+	float GetThreshold() const { return 1.0 - 1.0 / (1<<DICT_LOAD_FACTOR_BITS);}
 
 	/// Buckets of the table, not including overflow size.
 	int Buckets(bool expected=false) const;
@@ -221,7 +219,7 @@ private:
 	friend IterCookie;
 	//bucket math
 	int Log2(int num) const;
-	int ThresholdEntries() const; 
+	int ThresholdEntries() const;
 
 	hash_t FibHash(hash_t h) const; //to improve the distribution of original hash.
 	///map h to n-bit table bucket.
@@ -229,12 +227,12 @@ private:
 	//given position of non-empty item in the table, find my bucket.
 	int BucketByPosition(int position) const;
 
-	///given position of an non-empty item in the table, find the head of cluster, 
-	///if not found, return -1 and set expected_position to be the position it's supposed to be if expected_position is not NULL. 
+	///given position of an non-empty item in the table, find the head of cluster,
+	///if not found, return -1 and set expected_position to be the position it's supposed to be if expected_position is not NULL.
 	int HeadOfClusterByBucket(int bucket) const;
 	///given position of an non-empty item in the table, find the tail of its cluster
 	int TailOfClusterByBucket(int bucket) const;
-	///given position of an non-empty item in the table. find the end of its cluster. 
+	///given position of an non-empty item in the table. find the end of its cluster.
 	///end = tail + 1 if tail exists. otherwise the tail of just smaller cluster + 1.
 	int EndOfClusterByBucket(int bucket) const;
 
@@ -242,7 +240,7 @@ private:
 	int HeadOfClusterByPosition(int position) const;
 	///given position of an non-empty item in the table, find the tail of its cluster
 	int TailOfClusterByPosition(int position) const;
-	///given position of an non-empty item in the table. find the end of its cluster. 
+	///given position of an non-empty item in the table. find the end of its cluster.
 	///end = tail + 1 if tail exists. otherwise the tail of just smaller cluster + 1.
 	int EndOfClusterByPosition(int position) const;
 	///given position of an non-empty item in the table, find the offset of me in its cluster
@@ -278,7 +276,7 @@ private:
 
 	bool Remapping() const { return remap_end >= 0;} //remap in reverse order.
 	///One round of remap.
-	void Remap(); 
+	void Remap();
 
 	///Remap item in [position]
 	///Returns true if actual relocation happend. false on noop.
@@ -288,10 +286,10 @@ private:
 	//the dictionary size will be bounded at around 100K. 1M is absolute limit. only Connections use so many entries.
 	//alligned on 8-bytes with 4-leading bytes. 7*8=56 bytes a dictionary.
 
-	//when sizeup but the current mapping is in progress. the current mapping will be ignored as it will be remapped to new dict size anyway. 
+	//when sizeup but the current mapping is in progress. the current mapping will be ignored as it will be remapped to new dict size anyway.
 	//however, the missed count is recorded for lookup. if position not found for a key in the position of dict of current size, it still could be in the position of dict of previous N sizes.
-	unsigned char remaps; 
-	unsigned char log2_buckets; 
+	unsigned char remaps;
+	unsigned char log2_buckets;
 	unsigned short num_iterators; //pending iterators on the dict. including robust and non-rubust. to avoid remap when any iterators active.
 	int remap_end;//the last index to be remapped
 
@@ -302,7 +300,7 @@ private:
 	dict_delete_func delete_func;
 	DictEntry* table;
 	std::vector<IterCookie*>* cookies;
-	std::vector<DictEntry>* order;//order means the order of insertion. means no deletion until exit. will be inefficient. 
+	std::vector<DictEntry>* order;//order means the order of insertion. means no deletion until exit. will be inefficient.
 public:
 	//Debugging
 #ifdef DEBUG
