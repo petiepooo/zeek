@@ -85,6 +85,43 @@ void Expr::Delete(Frame* /* f */)
 	Internal("Expr::Delete called");
 	}
 
+int Expr::IsUnary() const
+	{
+	switch ( tag )
+		{
+		case EXPR_CLONE:
+		case EXPR_INCR:
+		case EXPR_DECR:
+		case EXPR_NOT: 
+		case EXPR_COMPLEMENT:
+		case EXPR_POSITIVE: 
+		case EXPR_NEGATE:
+
+		case EXPR_SIZE:
+		case EXPR_REF:
+		case EXPR_FUNC_REF:
+		case EXPR_FIELD:
+		case EXPR_HAS_FIELD:
+			
+		case EXPR_RECORD_CONSTRUCTOR:
+		case EXPR_TABLE_CONSTRUCTOR:
+		case EXPR_SET_CONSTRUCTOR:
+		case EXPR_VECTOR_CONSTRUCTOR:
+		case EXPR_FIELD_ASSIGN:
+
+		case EXPR_ARITH_COERCE:
+		case EXPR_RECORD_COERCE:
+		case EXPR_TABLE_COERCE:
+		case EXPR_VECTOR_COERCE:
+
+		case EXPR_FLATTEN:
+		case EXPR_CAST:
+			return true;
+
+		default:
+			return false;
+		}
+	}
 Expr* Expr::MakeLvalue()
 	{
 	if ( ! IsError() )
@@ -202,6 +239,34 @@ void Expr::RuntimeErrorWithCallStack(const std::string& msg) const
 		}
 	}
 
+static bool check_allowed_uninitialized_usage (ID* id) {
+	// This function exists to allow certain types
+	// to escape error checking when Eval is called but
+	// the variable is uninitialized
+	// Specifically, it is to allow event and hook flavored functions
+	// to be called even when they are uninitialized
+	return id->Type() && id->Type()->Tag() == TYPE_FUNC && 
+		(id->Type()->AsFuncType()->Flavor() == FUNC_FLAVOR_HOOK || id->Type()->AsFuncType()->Flavor() == FUNC_FLAVOR_EVENT);
+
+}
+
+static bool check_allowed_uninitialized_usage (Expr* e) {
+	// This function exists to allow certain types
+	// to escape error checking when Eval is called but
+	// the variable is uninitialized
+	// Specifically, it is to allow event and hook flavored functions
+	// to be called even when they are uninitialized
+	if ( e->Tag() == EXPR_NAME )
+		return check_allowed_uninitialized_usage(e->AsNameExpr()->Id());
+	else if ( e->IsUnary() )
+		{
+		UnaryExpr* eu = dynamic_cast<UnaryExpr*>(e);
+		return eu->Op() && check_allowed_uninitialized_usage(eu->Op());
+		}
+
+	return false;
+}
+
 NameExpr::NameExpr(ID* arg_id, bool const_init) : Expr(EXPR_NAME)
 	{
 	id = arg_id;
@@ -225,7 +290,6 @@ NameExpr::~NameExpr()
 Val* NameExpr::Eval(Frame* f) const
 	{
 	Val* v;
-
 	if ( id->AsType() )
 		return new Val(id->AsType(), true);
 
@@ -269,15 +333,28 @@ void NameExpr::Assign(Frame* f, Val* v)
 		{
 		if ( id->Type()->Tag() == TYPE_FUNC )
 			{
-			FuncImpl* fv = v->AsFuncVal();
+			BroFunc* fv = dynamic_cast<BroFunc*>(v->AsFuncVal());
+
+			if ( !fv ) // Indicates Builtin Func, TODO: Add overload support
+				id->SetVal(v);
+
 			FuncType* ft = fv->GetType();
 			FuncType* idt = id->Type()->AsFuncType();
 			FuncOverload* o = ft->GetOverload(fv->GetOverloadIndex());
 			FuncOverload* to_add = idt->GetOverload(o->decl->args);
 			int overload_idx = to_add->index;
+
+			BroFunc* bf = fv->DoClone();
+
 			if (debug)
-			printf("Adding overload in NameExpr Assign\n");
-			id->ID_Val()->AsFunc()->SetOverload(overload_idx, fv);
+			printf("Adding overload in NameExpr Assign \n");
+
+			Func* func;
+			if ( !id->HasVal() )
+				func = new Func(id);
+			else
+				func = id->ID_Val()->AsFunc();
+			func->SetOverload(overload_idx, bf);
 			return;
 			}
 		id->SetVal(v);
@@ -4434,7 +4511,7 @@ Val* CallExpr::Eval(Frame* f) const
 
 	if ( func_val && v )
 		{
-		const FuncVal& fv = func_val->AsFuncVal();
+		const FuncImpl* fv = func_val->AsFuncVal();
 		const CallExpr* current_call = f ? f->GetCall() : 0;
 
 		if ( f )
@@ -4722,8 +4799,11 @@ Val* ListExpr::Eval(Frame* f) const
 		Val* ev = expr->Eval(f);
 		if ( ! ev )
 			{
-			RuntimeError("uninitialized list value");
-			Unref(v);
+			if ( !(expr->Type()->Tag() == TYPE_FUNC && check_allowed_uninitialized_usage(expr)) )
+				{
+				RuntimeError("uninitialized list value");
+				Unref(v);
+				}
 			return 0;
 			}
 

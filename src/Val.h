@@ -55,12 +55,6 @@ class VectorVal;
 
 class TableEntryVal;
 
-typedef FuncImpl* FuncVal;
-//struct FuncVal {
-//	Func* func;
-//	int overload_idx;
-//};
-
 typedef union {
 	// Used for bool, int, enum.
 	bro_int_t int_val;
@@ -78,7 +72,7 @@ typedef union {
 	double double_val;
 
 	BroString* string_val;
-	FuncVal func_val;
+	FuncImpl* func_val;
 	BroFile* file_val;
 	RE_Matcher* re_val;
 	PDict<TableEntryVal>* table_val;
@@ -247,7 +241,7 @@ public:
 		return val.func_val->GetFunc();
 		}
 
-	const FuncVal& AsFuncVal() const
+	const FuncImpl* AsFuncVal() const
 		{
 		CHECK_TAG(type->Tag(), TYPE_FUNC, "Val::FuncVal", type_name);
 		return val.func_val;
@@ -285,6 +279,12 @@ public:
 	ACCESSOR(TYPE_FILE, BroFile*, file_val, AsFile)
 	ACCESSOR(TYPE_PATTERN, RE_Matcher*, re_val, AsPattern)
 	ACCESSOR(TYPE_VECTOR, vector<Val*>*, vector_val, AsVector)
+
+	FuncImpl* AsFuncVal()
+		{
+		CHECK_TAG(type->Tag(), TYPE_FUNC, "Val::FuncVal", type_name);
+		return val.func_val;
+		}
 
 	Func* AsFunc()
 		{

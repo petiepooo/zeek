@@ -426,8 +426,6 @@ public:
 	const BroType* YieldType() const override;
 	void SetYieldType(BroType* arg_yield)	{ yield = arg_yield; }
 	function_flavor Flavor() const { return flavor; }
-	bool Init() { return init; }
-	void SetInit(bool i) { init = i; }
 	std::string FlavorString() const;
 
 	// Used to convert a function type to an event or hook type.
@@ -461,7 +459,6 @@ protected:
 
 	BroType* yield;
 	function_flavor flavor;
-	bool init;
 	std::vector<FuncOverload*> overloads;
 };
 

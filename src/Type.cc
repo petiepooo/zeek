@@ -510,7 +510,6 @@ FuncType::FuncType(RecordType* arg_args, BroType* arg_yield, function_flavor arg
 	{
 	yield = arg_yield;
 	flavor = arg_flavor;
-	init = false;
 	AddOverload(arg_args);
 	}
 
@@ -520,7 +519,6 @@ FuncType::FuncType(RecordType* arg_args, BroType* arg_yield, function_flavor arg
 	{
 	yield = arg_yield;
 	flavor = arg_flavor;
-	init = false;
 	AddOverload(arg_args, solitary);
 	}
 
@@ -612,7 +610,7 @@ int FuncType::SetOverload(int overload_idx, RecordType* args, bool solitary)
 
 		if ( ! have_unique_param && o->index == overload_idx )
 			return -1;
-	
+
 		else if ( ! have_unique_param )
 			{
 			args->Error("function parameters would create ambiguous overload",

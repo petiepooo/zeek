@@ -26,10 +26,10 @@ static Val* init_val(Expr* init, const BroType* t, Val* aggr)
 
 static void init_func_id (ID* id, FuncImpl* fv, int overload_idx, FuncType* t, bool redef = false)
 	{
-	bool debug = false; //streq(id->Name(),"qux");
+	bool debug = false;
 
-	if ( fv->GetFunc() && (fv->GetFunc()->Flavor() == FUNC_FLAVOR_HOOK || fv->GetFunc()->Flavor() == FUNC_FLAVOR_EVENT) )
-		return;
+	//if ( fv->GetFunc() && (fv->GetFunc()->Flavor() == FUNC_FLAVOR_HOOK || fv->GetFunc()->Flavor() == FUNC_FLAVOR_EVENT) )
+	//	return;
 
 	if ( redef && id->HasVal() )
 		{
@@ -55,7 +55,7 @@ static void init_func_id (ID* id, FuncImpl* fv, int overload_idx, FuncType* t, b
 		{
 		if (debug)
 			printf("ADDING OVERLOAD FOR %s overload %i\n",id->Name(),overload_idx);
-		id->Type()->AsFuncType()->GetOverload(overload_idx)->type->SetInit(true);
+		id->Type()->AsFuncType()->GetOverload(overload_idx)->init = true;
 		id->ID_Val()->AsFunc()->SetOverload(overload_idx,fv);
 		return;
 		}
@@ -81,8 +81,6 @@ static void init_func_id (ID* id, FuncImpl* fv, int overload_idx, FuncType* t, b
 				break;
 				}
 			}
-
-		t->GetOverload(0)->index = fv->GetOverloadIndex();
 		}
 
 	else if ( !fv->GetType() && id->Type() && id->Type()->Tag() == TYPE_FUNC )
@@ -93,6 +91,7 @@ static void init_func_id (ID* id, FuncImpl* fv, int overload_idx, FuncType* t, b
 
 	Func* f = new Func(id);
 	f->SetOverload(overload_idx, fv);
+	id->Type()->AsFuncType()->GetOverload(overload_idx)->init = true;
 
 	id->SetVal(new Val(fv));
 
@@ -345,7 +344,7 @@ static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 
 	id->UpdateValAttrs();
 
-	if ( t && t->Tag() == TYPE_FUNC &&
+	if ( id && !id->HasVal() && t && t->Tag() == TYPE_FUNC &&
 	     (t->AsFuncType()->Flavor() == FUNC_FLAVOR_EVENT ||
 	      t->AsFuncType()->Flavor() == FUNC_FLAVOR_HOOK) )
 		{
@@ -356,7 +355,7 @@ static void make_var(ID* id, BroType* t, init_class c, Expr* init,
 
 		// TODO: probably need to adapt to support overloads
 		auto o = new BroFunc(id, 0, 0, 0, 0, 0);
-		f->AddOverload(o);
+		f->SetOverload(overload_idx,o);
 		id->SetVal(new Val(o));
 		}
 	}
@@ -548,7 +547,7 @@ void begin_func(ID* id, const char* module_name, function_flavor flavor,
 				auto& os = existing_func->Overloads();
 				if ( overload_idx >= 0 &&
 				     overload_idx < static_cast<int>(os.size()) &&
-				     o && o->type->Init() ) {
+				     o && o->init ) {
 					printf("FUNC (%i) already defined\n",overload_idx);
 					id->Error("already defined");
 			}
@@ -660,7 +659,8 @@ void end_func(Stmt* body)
 
 	if ( ingredients->id->HasVal() && 
 			(ingredients->id->ID_Val()->AsFunc()->Flavor() == FUNC_FLAVOR_HOOK || 
-			ingredients->id->ID_Val()->AsFunc()->Flavor() == FUNC_FLAVOR_EVENT) )
+			ingredients->id->ID_Val()->AsFunc()->Flavor() == FUNC_FLAVOR_EVENT) &&
+			ingredients->id->Type()->AsFuncType()->GetOverload(overload_idx)->init )
 		{
 		BroFunc* id_bf = dynamic_cast<BroFunc*>(ingredients->id->ID_Val()->AsFunc()->GetOverload(overload_idx));
 		id_bf->AddBody(
@@ -680,10 +680,6 @@ void end_func(Stmt* body)
 		ingredients->priority,
 		ingredients->scope);
 		}
-
-	ID* debugid = ingredients->id;
-	if (debug)
-		printf("debug in end_func %s\n",debugid->Name());
 
 	if (bf) 
 		init_func_id(ingredients->id, bf, overload_idx, 0);

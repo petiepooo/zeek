@@ -424,6 +424,7 @@ HashKey* CompositeHash::ComputeSingletonHash(const Val* v, int type_check) const
 
 	case TYPE_INTERNAL_VOID:
 	case TYPE_INTERNAL_OTHER:
+
 		if ( v->Type()->Tag() == TYPE_FUNC )
 			return new HashKey(v->AsFunc()->GetUniqueFuncID(), v->AsFuncVal()->GetOverloadIndex());
 

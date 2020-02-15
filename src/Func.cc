@@ -815,11 +815,7 @@ BroFunc* BroFunc::DoClone()
 	{
 	// BroFunc could hold a closure. In this case a clone of it must
 	// store a copy of this closure.
-	Func* parent = func->DoClone();
-	//ID* parent_id = lookup_ID(parent->Name(), GLOBAL_MODULE_NAME, false);
-	BroFunc* other = new BroFunc(parent,type);
-
-	Unref(parent);
+	BroFunc* other = new BroFunc(func,type);
 	CopyStateInto(other);
 
 	other->frame_size = frame_size;

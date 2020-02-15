@@ -57,7 +57,7 @@ public:
 	void SetOverloadIndex (int i)
 		{ overload_idx = i; }
 
-	int GetOverloadIndex()
+	int GetOverloadIndex() const
 		{ return overload_idx; }
 
 	void SetFunc(Func* f);

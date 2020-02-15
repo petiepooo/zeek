@@ -2989,7 +2989,7 @@ static Val* check_func_overload(Val* v, const BroType* t)
 	if ( ! same_type(tft->YieldType(), vft->YieldType()) )
 		return nullptr;
 
-	auto& fv = v->AsFuncVal();
+	const FuncImpl* fv = v->AsFuncVal();
 
 	if ( fv->GetOverloadIndex() < 0 )
 		{
