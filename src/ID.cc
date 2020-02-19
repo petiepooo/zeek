@@ -59,13 +59,20 @@ void ID::ClearVal()
 	val = 0;
 	}
 
+static void h () {};
+
 void ID::SetVal(Val* v, bool arg_weak_ref)
 	{
 	ClearVal();
-	bool debug = false; //streq(name,"foo");
-
+	bool debug = false; //streq(name,"myhook5");
+	int i = -1;
 	if ( debug )
+	{
+		h();
+		i = 0;
 		printf("ID SET VAL DEBUG \n");
+	}
+	i = 1;
 	val = v;
 	weak_ref = arg_weak_ref;
 
@@ -260,7 +267,7 @@ void ID::EvalFunc(Expr* ef, Expr* ev)
 	args->Append(ev->Ref());
 
 	CallExpr* ce = new CallExpr(ef->Ref(), args);
-
+	printf("EVALFUNC CALLED ON %s",name);
 	SetVal(ce->Eval(0));
 	Unref(ce);
 	}

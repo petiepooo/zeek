@@ -331,13 +331,10 @@ void NameExpr::Assign(Frame* f, Val* v)
 	bool debug = false;
 	if ( id->IsGlobal() )
 		{
+		if (debug) printf("NameExpr Assign %s\n", id->Name());
 		if ( id->Type()->Tag() == TYPE_FUNC )
 			{
 			BroFunc* fv = dynamic_cast<BroFunc*>(v->AsFuncVal());
-
-			if ( !fv ) // Indicates Builtin Func, TODO: Add overload support
-				id->SetVal(v);
-
 			FuncType* ft = fv->GetType();
 			FuncType* idt = id->Type()->AsFuncType();
 			FuncOverload* o = ft->GetOverload(fv->GetOverloadIndex());

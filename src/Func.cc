@@ -262,7 +262,7 @@ int Func::AddOverload(FuncImpl* impl)
 
 Val* Func::Call(val_list* args, Frame* parent, int overload_idx) const
 	{
-	bool debug = false;
+	bool debug = false; //streq(Name(),"myhook5");
 	if (debug)
 		printf("Function Called: %s (%i)\n", Name(),overload_idx);
 	// TODO: may need to look at all internal Call usages to judge if they're
@@ -300,6 +300,7 @@ Val* Func::Call(val_list* args, Frame* parent, int overload_idx) const
 
 	for ( const auto& o : type->Overloads())
 		{
+		if (debug) printf("Overload Option");
 		auto oargs = o->decl->arg_types->Types();
 
 		if ( oargs->length() != args->length() )
@@ -309,6 +310,7 @@ Val* Func::Call(val_list* args, Frame* parent, int overload_idx) const
 
 		for ( auto i = 0; i < oargs->length(); ++i )
 			{
+			if (debug) printf(" %i, compared to %i\n",(*oargs)[i]->Tag(),(*args)[i]->Type()->Tag());
 			if ( ! same_type((*oargs)[i], (*args)[i]->Type()) )
 				{
 				args_match = false;
