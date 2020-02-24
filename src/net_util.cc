@@ -4,25 +4,27 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
-
 #include <netinet/in.h>
-
 #include <arpa/inet.h>
 
 #include "Reporter.h"
 #include "net_util.h"
 #include "IPAddr.h"
 #include "IP.h"
+#include "Aligner.h"
 
 // - adapted from tcpdump
 // Returns the ones-complement checksum of a chunk of b short-aligned bytes.
 int ones_complement_checksum(const void* p, int b, uint32_t sum)
 	{
-	const uint16_t* sp = (uint16_t*) p;
+	// Make sure this is aligned to a uint16_t when typecasting it or the code
+	// below may crash due to undefined behavior.
+	const uint16_t* sp = Aligner::AlignType<uint16_t>((const char*) p);
 
-	b /= 2;	// convert to count of short's
+	// Convert the byte count to a count of shorts
+	b /= 2;
 
-	/* No need for endian conversions. */
+	// No need for endian conversions
 	while ( --b >= 0 )
 		sum += *sp++;
 
