@@ -110,7 +110,7 @@ void TimerMgr::InitPostScript()
 
 PQ_TimerMgr::PQ_TimerMgr() : TimerMgr()
 	{
-	q = new PriorityQueue;
+	q = new TimerPQ();
 	}
 
 PQ_TimerMgr::~PQ_TimerMgr()
@@ -126,8 +126,7 @@ void PQ_TimerMgr::Add(Timer* timer)
 	// Add the timer even if it's already expired - that way, if
 	// multiple already-added timers are added, they'll still
 	// execute in sorted order.
-	if ( ! q->Add(timer) )
-		reporter->InternalError("out of memory");
+	q->push(timer);
 
 	++current_timers[timer->Type()];
 	}
@@ -137,8 +136,8 @@ void PQ_TimerMgr::Expire()
 	Timer* timer;
 	while ( (timer = Remove()) )
 		{
-		DBG_LOG(DBG_TM, "Dispatching timer %s (%p)",
-		        timer_type_to_string(timer->Type()), timer);
+		DBG_LOG(DBG_TM, "Dispatching timer %s (%p)   left: %ld",
+			timer_type_to_string(timer->Type()), timer, q->size());
 		timer->Dispatch(t, 1);
 		--current_timers[timer->Type()];
 		delete timer;
@@ -172,7 +171,7 @@ int PQ_TimerMgr::DoAdvance(double new_t, int max_expire)
 
 void PQ_TimerMgr::Remove(Timer* timer)
 	{
-	if ( ! q->Remove(timer) )
+	if ( ! q->remove(timer) )
 		reporter->InternalError("asked to remove a missing timer");
 
 	--current_timers[timer->Type()];
@@ -186,4 +185,21 @@ double PQ_TimerMgr::GetNextTimeout()
 		return std::max(0.0, top->Time() - ::network_time);
 
 	return -1;
+	}
+
+Timer* PQ_TimerMgr::Remove()
+	{
+	Timer* t = nullptr;
+	if ( ! q->empty() )
+		{
+		t = q->top();
+		q->pop();
+		}
+
+	return t;
+	}
+
+Timer* PQ_TimerMgr::Top()
+	{
+	return q->empty() ? nullptr : q->top();
 	}

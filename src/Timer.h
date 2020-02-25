@@ -2,10 +2,11 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <queue>
+
 #include "PriorityQueue.h"
 #include "iosource/IOSource.h"
-
-#include <stdint.h>
 
 // If you add a timer here, adjust TimerNames in Timer.cc.
 enum TimerType : uint8_t {
@@ -65,6 +66,30 @@ protected:
 	Timer()	{}
 	TimerType type;
 };
+
+using TimerPQ_Comp = std::function<int(const Timer*, const Timer*)>;
+class TimerPQ : public std::priority_queue<Timer*, std::vector<Timer*>, TimerPQ_Comp>
+	{
+public:
+
+	TimerPQ()
+		{
+		comp = [](const Timer* l, const Timer* r) { return l->Time() > r->Time(); };
+		}
+
+	bool remove(const Timer* t)
+		{
+		auto it = std::find(c.begin(), c.end(), t);
+		if ( it != c.end() )
+			{
+			c.erase(it);
+			std::make_heap(c.begin(), c.end(), this->comp);
+			return true;
+			}
+
+		return false;
+		}
+	};
 
 class TimerMgr : public iosource::IOSource {
 public:
@@ -152,19 +177,19 @@ public:
 	void Add(Timer* timer) override;
 	void Expire() override;
 
-	int Size() const override { return q->Size(); }
-	int PeakSize() const override { return q->PeakSize(); }
-	uint64_t CumulativeNum() const override { return q->CumulativeNum(); }
+	int Size() const override { return q->size(); }
+	int PeakSize() const override { return 0; } //q->PeakSize(); }
+	uint64_t CumulativeNum() const override { return 0; } //q->CumulativeNum(); }
 	double GetNextTimeout() override;
 
 protected:
 	int DoAdvance(double t, int max_expire) override;
 	void Remove(Timer* timer) override;
 
-	Timer* Remove()			{ return (Timer*) q->Remove(); }
-	Timer* Top()			{ return (Timer*) q->Top(); }
+	Timer* Remove();
+	Timer* Top();
 
-	PriorityQueue* q;
+	TimerPQ* q;
 };
 
 extern TimerMgr* timer_mgr;
